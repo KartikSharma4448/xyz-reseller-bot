@@ -103,16 +103,11 @@ app.use(session({
 
 // ─── Middleware: Check Auth ───────────────────────────────
 const checkAuth = (req, res, next) => {
-    // TEMPORARY BYPASS FOR UI PREVIEW
-    req.session.user = { email: 'admin@xyzcheats.com' };
-    next();
-    
-    // Original code:
-    // if (req.session.user) {
-    //     next();
-    // } else {
-    //     res.redirect('/login');
-    // }
+    if (req.session.user) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
 };
 
 // ─── Helper Functions ─────────────────────────────────────
