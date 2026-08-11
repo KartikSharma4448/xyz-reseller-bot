@@ -119,7 +119,10 @@ server.listen(PORT, () => {
 // ─── Email Transporter ────────────────────────────────────
 const transporter = nodemailer.createTransport({
   service: 'gmail',
-  auth: { user: GMAIL_USER, pass: GMAIL_PASS }
+  auth: {
+    user: GMAIL_USER,
+    pass: (GMAIL_PASS || '').replace(/\s/g, '') // Spaces remove karo (Render env fix)
+  }
 });
 
 // ─── Send Email ───────────────────────────────────────────
