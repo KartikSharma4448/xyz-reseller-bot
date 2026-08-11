@@ -36,21 +36,78 @@ let lastCheck = 'Never';
 let lastBalance = '₹0';
 let attempt = 0;
 let keyGenerated = false;
+let keyHistory = []; // All generated keys history
 
 // ─── Simple HTTP Server (keeps Render alive) ──────────────
 const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(`
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+
+  const historyHTML = keyHistory.length === 0
+    ? `<p style="color:#888;text-align:center;margin-top:20px;">Abhi tak koi key generate nahi hui...</p>`
+    : keyHistory.map((k, i) => `
+      <div style="background:#0f3460;border-radius:10px;padding:15px;margin-bottom:15px;text-align:left;border-left:4px solid #e94560;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="color:#e94560;font-weight:bold;font-size:13px;">#${keyHistory.length - i} &nbsp;|&nbsp; ${k.duration} &nbsp;|&nbsp; ₹${k.price}</span>
+          <span style="color:#888;font-size:11px;">${k.time}</span>
+        </div>
+        <div style="background:#1a1a2e;border-radius:6px;padding:10px;font-family:monospace;font-size:12px;color:#00ff88;word-break:break-all;">${k.key}</div>
+        <button onclick="navigator.clipboard.writeText('${k.key}')" style="margin-top:8px;background:#e94560;color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">📋 Copy Key</button>
+      </div>
+    `).join('');
+
+  res.end(`<!DOCTYPE html>
     <html>
-      <head><title>XYZ Bot Status</title></head>
-      <body style="font-family:Arial;background:#1a1a2e;color:#fff;padding:30px;text-align:center;">
-        <h2 style="color:#e94560;">🤖 XYZ Cheats Bot</h2>
-        <p>Status: <strong style="color:#00ff88;">${botStatus.toUpperCase()}</strong></p>
-        <p>Last Check: ${lastCheck}</p>
-        <p>Last Balance: ${lastBalance}</p>
-        <p>Checks Done: ${attempt}</p>
-        <p>Key Generated: ${keyGenerated ? '✅ YES' : '❌ Not yet'}</p>
-      </body>
+    <head>
+      <title>XYZ Cheats Bot</title>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; }
+        .header { background: linear-gradient(135deg,#16213e,#0f3460); padding: 25px; text-align: center; border-bottom: 2px solid #e94560; }
+        .header h1 { color: #e94560; font-size: 24px; } 
+        .header p { color: #aaa; font-size: 13px; margin-top: 5px; }
+        .stats { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; justify-content: center; }
+        .stat { background: #16213e; border-radius: 10px; padding: 15px 25px; text-align: center; min-width: 140px; border: 1px solid #0f3460; }
+        .stat .val { font-size: 22px; font-weight: bold; color: #00ff88; }
+        .stat .lbl { font-size: 11px; color: #888; margin-top: 4px; }
+        .section { padding: 0 20px 20px; max-width: 800px; margin: 0 auto; }
+        .section h2 { color: #e94560; margin-bottom: 15px; font-size: 18px; border-bottom: 1px solid #0f3460; padding-bottom: 10px; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge.running { background: #00ff8833; color: #00ff88; }
+        .badge.done { background: #e9456033; color: #e94560; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>🤖 XYZ Cheats Bot</h1>
+        <p>Auto Key Generator Dashboard</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="val"><span class="badge ${keyGenerated ? 'done' : 'running'}">${botStatus.toUpperCase()}</span></div>
+          <div class="lbl">Bot Status</div>
+        </div>
+        <div class="stat">
+          <div class="val">${attempt}</div>
+          <div class="lbl">Total Checks</div>
+        </div>
+        <div class="stat">
+          <div class="val">${keyHistory.length}</div>
+          <div class="lbl">Keys Generated</div>
+        </div>
+        <div class="stat">
+          <div class="val" style="font-size:14px;">${lastCheck}</div>
+          <div class="lbl">Last Check</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>🔑 Generated Keys History</h2>
+        ${historyHTML}
+      </div>
+    </body>
     </html>
   `);
 });
@@ -151,6 +208,15 @@ async function run() {
       lastBalance = `Used ₹${item.price}`;
       keyGenerated = true;
       botStatus = 'done - key generated!';
+
+      // History mein save karo
+      keyHistory.unshift({
+        key: key,
+        duration: item.duration,
+        price: item.price,
+        time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+      });
+
       await sendEmail(item.duration, item.price, key, buyRes);
       console.log(`[DONE] ✅ Email bhej diya!`);
       return;
