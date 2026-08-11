@@ -60,8 +60,6 @@ const PRODUCTS = {
   66: { name: 'XYZ CHEATS FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 Days', '3 Days'] }
 };
 
-};
-
 const DB_FILE = path.join(__dirname, 'database.json');
 let keyHistory = []; 
 
