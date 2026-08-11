@@ -1,0 +1,25 @@
+services:
+  - type: worker
+    name: xyz-reseller-bot
+    env: node
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: API_KEY
+        value: b02231959c3ecd6bd5879aeea1b68fe8
+      - key: MASTER_KEY
+        value: a7f3e8b2c9d1f4a6b8c2d5e9f1a3b6c8
+      - key: PRODUCT_ID
+        value: "133"
+      - key: DURATION
+        value: "7 DaYs"
+      - key: ANDROID_ID
+        value: "5304dee93858aef4"
+      - key: GMAIL_USER
+        value: hackingcommunity554@gmail.com
+      - key: GMAIL_PASS
+        value: "rdbl wusg iilj trvb"
+      - key: NOTIFY_EMAIL
+        value: hackingcommunity554@gmail.com
+      - key: CHECK_INTERVAL_MS
+        value: "15000"
