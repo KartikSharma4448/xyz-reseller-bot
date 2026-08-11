@@ -26,46 +26,37 @@ const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
 
 // ─── Products ───────────────────────────────────────────
 const PRODUCTS = {
-  133: {
-    name: 'BALA MOD XYZ FF MAIN ID NONROOT',
-    requiresAndroidId: true,
-    durations: ['1 Hours', '3 Hours', '6 Hours', '12 Hours', '1 DaYs', '2 DaYs', '3 DaYs', '5 DaYs', '7 DaYs']
-  },
-  49: {
-    name: 'BR MOD FF PC VERSION',
-    requiresAndroidId: false,
-    durations: ['1 Day Pc Aim Silent', '1 Day Pc Modmenu x86', '10 Day Pc Modmenu x86', '10 Days Pc Aim Silent', '10 Days Pc Bypass + Silent', '30 Day Pc Modmenu x86', '30 Days Pc Aim Silent', '30 Days Pc Bypass + Silent']
-  },
-  67: {
-    name: 'BR MOD FF ROOT ANDROID',
-    requiresAndroidId: false,
-    durations: ['1 DaYs', '7 DaYs', '15 DaYs', '30 DaYs']
-  },
-  59: {
-    name: 'DRIPCLIENT 8BP NONROOT ANDROID',
-    requiresAndroidId: false,
-    durations: ['1 DaYs', '7 DaYs', '30 DaYs']
-  },
-  62: {
-    name: 'DRIPCLIENT FF NONROOT APKMOD',
-    requiresAndroidId: false,
-    durations: ['1 DaYS NONROOT', '3 DaYS NONROOT', '7 DaYS NONROOT', '15 DaYS NONROOT', '30 DaYS NONROOT']
-  },
-  44: {
-    name: 'DRIPCLIENT FF PC AIMKILL',
-    requiresAndroidId: false,
-    durations: ['7 DaYS PC AIMKILL', '15 DaYS PC AIMKILL', '30 DaYS PC AIMKILL']
-  },
-  91: {
-    name: 'DRIPCLIENT PROXY FF NONROOT ANDROID',
-    requiresAndroidId: false,
-    durations: ['1 DaYs', '3 DaYs', '7 DaYs', '30 DaYs']
-  },
-  136: {
-    name: 'BALA MODS XYZ V2',
-    requiresAndroidId: false,
-    durations: ['1 Hours']
-  }
+  133: { name: 'BALA MOD XYZ FF MAIN ID NONROOT', requiresAndroidId: true, durations: ['1 Hours', '3 Hours', '6 Hours', '12 Hours', '1 DaYs', '2 DaYs', '3 DaYs', '5 DaYs', '7 DaYs'] },
+  49: { name: 'BR MOD FF PC VERSION', requiresAndroidId: false, durations: ['1 Day Pc Aim Silent', '1 Day Pc Modmenu x86', '10 Day Pc Modmenu x86', '10 Days Pc Aim Silent', '10 Days Pc Bypass + Silent', '30 Day Pc Modmenu x86', '30 Days Pc Aim Silent', '30 Days Pc Bypass + Silent'] },
+  67: { name: 'BR MOD FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '15 DaYs', '30 DaYs'] },
+  59: { name: 'DRIPCLIENT 8BP NONROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '30 DaYs'] },
+  62: { name: 'DRIPCLIENT FF NONROOT APKMOD', requiresAndroidId: false, durations: ['1 DaYS NONROOT', '3 DaYS NONROOT', '7 DaYS NONROOT', '15 DaYS NONROOT', '30 DaYS NONROOT'] },
+  44: { name: 'DRIPCLIENT FF PC AIMKILL', requiresAndroidId: false, durations: ['7 DaYS PC AIMKILL', '15 DaYS PC AIMKILL', '30 DaYS PC AIMKILL'] },
+  63: { name: 'DRIPCLIENT FF ROOT ANDROID', requiresAndroidId: false, durations: ['30 DaYS ROOT'] },
+  91: { name: 'DRIPCLIENT PROXY FF NONROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '3 DaYs', '7 DaYs', '30 DaYs'] },
+  58: { name: 'FLUORITE IOS FF', requiresAndroidId: false, durations: ['1 DAYs FluoRite FF', '7 DAYs FluoRite FF', '30 DAYs FluoRite FF'] },
+  84: { name: 'FLUORITE IOS MLBB', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '30 DaYs'] },
+  64: { name: 'HAXX-CKER PRO FF NONROOT+ROOT', requiresAndroidId: false, durations: ['10 DaYs', '20 DaYs', '30 DaYs', '60 DaYs', '120 DaYs'] },
+  123: { name: 'HG CHEATS ANDROID PROXY FF NONROOT', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '10 DaYs', '30 DaYs'] },
+  65: { name: 'HG CHEATS FF APKMOD NONROOT+ROOT', requiresAndroidId: false, durations: ['1 DaYs Root + Nonroot', '7 DaYs Root+Nonroot', '10 DaYs Root+Nonroot', '30 DaYs Root+Nonroot'] },
+  87: { name: 'IOS CLOUD CODM', requiresAndroidId: false, durations: ['30 DaYs'] },
+  86: { name: 'IOS FLUORITE 8 BALL POOL', requiresAndroidId: false, durations: ['7 DaYs', '30 DaYs'] },
+  85: { name: 'IOS IPHONE ALL GBOX CERTIFICATE', requiresAndroidId: false, durations: ['1 Year Ios Esign Gbox Certificate', '1 Year Ios Signer Gbox Certificate'] },
+  76: { name: 'KOS 8 BALL POOL NONROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs Premium Access', '7 DaYs Premium Access', '30 DaYs Premium Access', '30 DaYs Mod'] },
+  75: { name: 'KOS CARROM POOL NONROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '30 DaYs'] },
+  74: { name: 'KOS FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '30 DaYs'] },
+  69: { name: 'MIGUL IPHONE IOS FF', requiresAndroidId: false, durations: ['1 DaYs Basic', '1 DaYs PRO', '7 DaYs Basic', '7 DaYs PRO', '30 DaYs Basic', '30 DaYs PRO'] },
+  54: { name: 'PATO TEAM FF ALL ANDROID', requiresAndroidId: false, durations: ['3 DaYs All Colours Mix', '7 DaYs All Colours Mix', '15 DaYs All Colours Mix', '30 DaYs All Colours Mix'] },
+  48: { name: 'PRIME HOOK FF NONROOT ANDROID', requiresAndroidId: false, durations: ['1 Days Nonroot', '3 Days Nonroot', '7 Days NonRoot', '10 Days Nonroot'] },
+  130: { name: 'RAPID CORE FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs', '7 DaYs', '14 DaYs', '30 DaYs'] },
+  81: { name: 'REAPER X PRO FF ROOT ANDROID', requiresAndroidId: false, durations: ['10 DaYs'] },
+  127: { name: 'SILENT CHEAT FF NONROOT APKMOD', requiresAndroidId: false, durations: ['1 DaYs', '3 DaYs', '7 DaYs', '14 DaYs', '28 DaYs'] },
+  128: { name: 'SILENT CHEAT FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 DaYs BRUTAL', '1 DaYs SAFE', '3 DaYs BRUTAL', '3 DaYs SAFE', '7 DaYs BRUTAL', '7 DaYs SAFE', '14 DaYs BRUTAL', '14 DaYs SAFE', '28 DaYs BRUTAL', '28 DaYs SAFE'] },
+  79: { name: 'SNAKE 8 BALL POOL NONROOT ANDROID', requiresAndroidId: false, durations: ['3 DaYs', '10 DaYs', '30 DaYs'] },
+  77: { name: 'SNAKE CARROM POOL NONROOT ANDROID', requiresAndroidId: false, durations: ['3 DaYs', '10 DaYs', '30 DaYs'] },
+  78: { name: 'SNAKE SOCCER STARS NONROOT ANDROID', requiresAndroidId: false, durations: ['3 DaYs', '10 DaYs', '30 DaYs'] },
+  136: { name: 'BALA MODS XYZ V2', requiresAndroidId: false, durations: ['1 Hours'] },
+  66: { name: 'XYZ CHEATS FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 Days', '3 Days'] }
 };
 
 let keyHistory = []; // In-memory history for panel
