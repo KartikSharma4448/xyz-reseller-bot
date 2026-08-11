@@ -18,17 +18,17 @@ const PORT         = process.env.PORT || 3000;
 
 const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
 
-// ─── Price List (highest first) ───────────────────────────
+// ─── Price List (highest first) ───────────────────────────────
 const PRICE_LIST = [
-  { duration: '7 DaYs',  price: 1680 },
-  { duration: '5 DaYs',  price: 1200 },
-  { duration: '3 DaYs',  price: 720  },
-  { duration: '2 DaYs',  price: 480  },
-  { duration: '1 DaYs',  price: 240  },
-  { duration: '12 Hours', price: 120 },
-  { duration: '6 Hours',  price: 60  },
-  { duration: '3 Hours',  price: 30  },
-  { duration: '1 Hours',  price: 10  },
+  { duration: '7 DaYs',   price: 1680, ms: 7  * 24 * 60 * 60 * 1000 },
+  { duration: '5 DaYs',   price: 1200, ms: 5  * 24 * 60 * 60 * 1000 },
+  { duration: '3 DaYs',   price: 720,  ms: 3  * 24 * 60 * 60 * 1000 },
+  { duration: '2 DaYs',   price: 480,  ms: 2  * 24 * 60 * 60 * 1000 },
+  { duration: '1 DaYs',   price: 240,  ms: 1  * 24 * 60 * 60 * 1000 },
+  { duration: '12 Hours', price: 120,  ms: 12 * 60 * 60 * 1000       },
+  { duration: '6 Hours',  price: 60,   ms: 6  * 60 * 60 * 1000       },
+  { duration: '3 Hours',  price: 30,   ms: 3  * 60 * 60 * 1000       },
+  { duration: '1 Hours',  price: 10,   ms: 1  * 60 * 60 * 1000       },
 ];
 
 // ─── Bot State ────────────────────────────────────────────
@@ -52,7 +52,10 @@ const server = http.createServer((req, res) => {
           <span style="color:#888;font-size:11px;">${k.time}</span>
         </div>
         <div style="background:#1a1a2e;border-radius:6px;padding:10px;font-family:monospace;font-size:12px;color:#00ff88;word-break:break-all;">${k.key}</div>
-        <button onclick="navigator.clipboard.writeText('${k.key}')" style="margin-top:8px;background:#e94560;color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">📋 Copy Key</button>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button onclick="navigator.clipboard.writeText('${k.key}')" style="background:#e94560;color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">📋 Copy Key</button>
+          <span style="color:#ffc107;font-size:11px;">⏰ Expires: ${k.expiresAt || 'N/A'}</span>
+        </div>
       </div>
     `).join('');
 
@@ -206,15 +209,28 @@ async function run() {
       botStatus = 'done - key generated!';
 
       // History mein save karo
+      const expiryTime = new Date(Date.now() + item.ms);
       keyHistory.unshift({
         key: key,
         duration: item.duration,
         price: item.price,
-        time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+        time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        expiresAt: expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
       });
 
       await sendEmail(item.duration, item.price, key, buyRes);
       console.log(`[DONE] ✅ Email bhej diya!`);
+
+      // ⏰ Auto-renewal: key expire hone pe reset
+      console.log(`[EXPIRY] Key ${item.duration} baad expire hogi: ${expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+      setTimeout(() => {
+        console.log(`[EXPIRED] 🔄 Key expire ho gayi! Naya key lene ki koshish...`);
+        keyGenerated = false;
+        botStatus = 'running';
+        attempt = 0;
+        run(); // Turant try karo
+      }, item.ms);
+
       return;
 
     } catch (err) {
