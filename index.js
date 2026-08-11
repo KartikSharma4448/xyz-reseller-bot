@@ -1,6 +1,6 @@
 require('dotenv').config();
 const axios = require('axios');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const qs = require('querystring');
 const http = require('http');
 
@@ -9,10 +9,11 @@ const API_KEY      = process.env.API_KEY;
 const MASTER_KEY   = process.env.MASTER_KEY;
 const PRODUCT_ID   = process.env.PRODUCT_ID;
 const ANDROID_ID   = process.env.ANDROID_ID;
-const GMAIL_USER   = process.env.GMAIL_USER;
-const GMAIL_PASS   = process.env.GMAIL_PASS;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
+const RESEND_KEY   = process.env.RESEND_API_KEY;
 const INTERVAL_MS  = parseInt(process.env.CHECK_INTERVAL_MS) || 15000;
+
+const resend = new Resend(RESEND_KEY);
 const PORT         = process.env.PORT || 3000;
 
 const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
@@ -117,24 +118,12 @@ server.listen(PORT, () => {
   console.log(`[SERVER] ✅ HTTP server running on port ${PORT}`);
 });
 
-// ─── Email Transporter (Explicit SMTP for Render) ─────────
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // SSL
-  auth: {
-    user: GMAIL_USER,
-    pass: (GMAIL_PASS || '').replace(/\s/g, '') // Spaces remove karo
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000
-});
+// ─── Send Email via Resend (HTTP API — works on Render!) ─────
 
 // ─── Send Email ───────────────────────────────────────────
 async function sendEmail(duration, price, key, rawResponse) {
-  const mailOptions = {
-    from: GMAIL_USER,
+  await resend.emails.send({
+    from: 'onboarding@resend.dev',
     to: NOTIFY_EMAIL,
     subject: `✅ Key Ready! ${duration} - XYZ Cheats`,
     html: `
@@ -242,8 +231,8 @@ async function run() {
   if (failedCount % 2 === 0) {
     console.log(`[ALERT] 2 fails ho gaye — balance low email bhej raha hoon...`);
     try {
-      await transporter.sendMail({
-        from: GMAIL_USER,
+      const { error: alertError } = await resend.emails.send({
+        from: 'XYZ Bot <onboarding@resend.dev>',
         to: NOTIFY_EMAIL,
         subject: `⚠️ Balance Low! Recharge Karo — XYZ Bot`,
         html: `
@@ -263,6 +252,7 @@ async function run() {
           </div>
         `
       });
+      if (alertError) throw new Error(alertError.message);
       console.log(`[ALERT EMAIL] ✅ Low balance email sent!`);
     } catch (e) {
       console.log(`[ALERT EMAIL ERROR] ${e.message}`);
