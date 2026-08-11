@@ -117,13 +117,18 @@ server.listen(PORT, () => {
   console.log(`[SERVER] ✅ HTTP server running on port ${PORT}`);
 });
 
-// ─── Email Transporter ────────────────────────────────────
+// ─── Email Transporter (Explicit SMTP for Render) ─────────
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // SSL
   auth: {
     user: GMAIL_USER,
-    pass: (GMAIL_PASS || '').replace(/\s/g, '') // Spaces remove karo (Render env fix)
-  }
+    pass: (GMAIL_PASS || '').replace(/\s/g, '') // Spaces remove karo
+  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 10000
 });
 
 // ─── Send Email ───────────────────────────────────────────
