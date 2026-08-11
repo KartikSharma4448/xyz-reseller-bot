@@ -207,7 +207,9 @@
                     <span class="loader"></span>
                     Bot is actively checking API for:<br>
                     <span style="color:#fff; font-size:18px; display:inline-block; margin-top:10px;"><%= botConfig.productName %> (<%= botConfig.duration %>)</span><br>
-                    <span style="color:#00ff88; font-size:14px; margin-top:5px; display:inline-block;" id="liveCheckCount">Total Checks: <%= botConfig.checks %></span>
+                    <% if (botConfig.android_id) { %>
+                        <span style="color:#e94560; font-size:14px; margin-top:5px; display:inline-block;">Device ID: <%= botConfig.android_id %></span><br>
+                    <% } %>
                 </div>
                 
                 <form action="/bot/stop" method="POST">
@@ -240,6 +242,18 @@
                     <button type="submit" class="btn">🚀 Start Auto-Bot</button>
                 </form>
             <% } %>
+
+            <!-- Stats Section -->
+            <div style="display: flex; gap: 20px; margin-top: 30px; margin-bottom: 10px;">
+                <div style="flex: 1; text-align: center; border: 1px solid rgba(0,255,136,0.3); background: rgba(0,255,136,0.05); padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 14px; color: #aaa; margin-bottom: 5px;">Active API Checks</div>
+                    <div style="font-size: 32px; color: #00ff88; font-weight: bold;" id="liveCheckCount"><%= botConfig ? botConfig.checks : 0 %></div>
+                </div>
+                <div style="flex: 1; text-align: center; border: 1px solid rgba(233,69,96,0.3); background: rgba(233,69,96,0.05); padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 14px; color: #aaa; margin-bottom: 5px;">Total Keys Generated</div>
+                    <div style="font-size: 32px; color: #e94560; font-weight: bold;"><%= history ? history.length : 0 %></div>
+                </div>
+            </div>
 
             <!-- Bot Start History -->
             <% if (typeof botStartHistory !== 'undefined' && botStartHistory.length > 0) { %>
@@ -345,7 +359,7 @@
             // Update live counter if available
             const counterEl = document.getElementById('liveCheckCount');
             if (counterEl && data.checks !== undefined) {
-                counterEl.innerText = 'Total Checks: ' + data.checks;
+                counterEl.innerText = data.checks;
             }
         };
         evtSource.onerror = function(err) {
