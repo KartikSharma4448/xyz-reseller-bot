@@ -247,13 +247,13 @@
                 <% history.forEach(h => { %>
                     <div class="history-item">
                         <div class="header">
-                            <strong style="color: #e94560;"><%= h.productName %></strong>
+                            <strong style="color: #e94560;"><%= h.product_name || h.productName %></strong>
                             <span style="font-size: 12px; color: #888;"><%= h.time %></span>
                         </div>
                         <div style="font-size: 13px; color: #ccc; margin-bottom: 10px;">Duration: <%= h.duration %></div>
-                        <div class="key-box"><%= h.key %></div>
+                        <div class="key-box"><%= h.key_value || h.key %></div>
                         <div style="text-align: right;">
-                            <button onclick="navigator.clipboard.writeText('<%= h.key %>')" style="background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">Copy Key</button>
+                            <button onclick="navigator.clipboard.writeText('<%= h.key_value || h.key %>')" style="background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">Copy Key</button>
                         </div>
                     </div>
                 <% }) %>

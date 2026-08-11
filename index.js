@@ -7,7 +7,6 @@ const axios = require('axios');
 const { Resend } = require('resend');
 const qs = require('querystring');
 const path = require('path');
-const fs = require('fs');
 
 // ─── Config ───────────────────────────────────────────────
 const API_KEY      = process.env.API_KEY;
@@ -59,24 +58,6 @@ const PRODUCTS = {
   136: { name: 'BALA MODS XYZ V2', requiresAndroidId: false, durations: ['1 Hours'] },
   66: { name: 'XYZ CHEATS FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 Days', '3 Days'] }
 };
-
-const DB_FILE = path.join(__dirname, 'database.json');
-let keyHistory = []; 
-
-// Load existing history from file
-if (fs.existsSync(DB_FILE)) {
-    try {
-        const data = fs.readFileSync(DB_FILE, 'utf8');
-        keyHistory = JSON.parse(data);
-    } catch (err) {
-        console.error("Error reading database.json", err);
-    }
-}
-
-// Helper to save history
-function saveHistory() {
-    fs.writeFileSync(DB_FILE, JSON.stringify(keyHistory, null, 2));
-}
 
 let activeBotTask = null;
 let botConfig = null;
@@ -216,11 +197,21 @@ app.get('/bot/stream', (req, res) => {
     });
 });
 
-app.get('/', checkAuth, (req, res) => {
+app.get('/', checkAuth, async (req, res) => {
+    // Fetch latest keys from Supabase
+    const { data: keys, error } = await supabase
+        .from('keys')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+    if (error) {
+        console.error("Error fetching keys:", error.message);
+    }
+
     res.render('dashboard', { 
         user: req.session.user,
         products: PRODUCTS,
-        history: keyHistory,
+        history: keys || [],
         botConfig: botConfig
     });
 });
@@ -264,14 +255,22 @@ app.post('/bot/start', checkAuth, (req, res) => {
                 broadcastLog(`SUCCESS! Key generated for ${botConfig.productName}!`, 'success');
                 
                 const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
+                const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
                 
-                keyHistory.unshift({
-                    productName: botConfig.productName,
-                    key: key,
+                // Save to Supabase
+                const { error: dbError } = await supabase.from('keys').insert([{
+                    product_name: botConfig.productName,
                     duration: botConfig.duration,
-                    time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
-                });
-                saveHistory(); // Save to database.json
+                    key_value: key,
+                    time: timeStr
+                }]);
+                
+                if (dbError) {
+                    console.error("[DB ERROR] Failed to save key:", dbError.message);
+                    broadcastLog(`Warning: Key generated but failed to save to Database!`, 'warning');
+                } else {
+                    console.log("[DB] Key saved to Supabase successfully.");
+                }
 
                 await sendEmail(botConfig.productName, botConfig.duration, key, buyRes);
                 
