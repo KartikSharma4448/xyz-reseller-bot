@@ -98,6 +98,35 @@
         .btn:hover {
             background: #d63d56;
         }
+        .btn-stop {
+            background: #ff4444;
+        }
+        .btn-stop:hover {
+            background: #cc0000;
+        }
+        .bot-status {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .bot-status .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #00ff88;
+            margin-right: 10px;
+            animation: blink 1s infinite alternate;
+        }
+        @keyframes blink {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
         .history-item {
             background: #0f3460;
             border-radius: 8px;
@@ -141,32 +170,48 @@
     </nav>
 
     <div class="container">
-        <!-- Generate Key Section -->
+        <!-- Target Selection Section -->
         <div class="card">
-            <h2>Generate New Key</h2>
-            <form action="/generate" method="POST">
-                <div class="form-group">
-                    <label>Select Game (Product)</label>
-                    <select name="product_id" id="productSelect" required>
-                        <option value="" disabled selected>-- Select Product --</option>
-                        <% Object.keys(products).forEach(pid => { %>
-                            <option value="<%= pid %>"><%= products[pid].name %> (PID: <%= pid %>)</option>
-                        <% }) %>
-                    </select>
+            <h2>Auto-Bot Target</h2>
+            
+            <% if (botConfig) { %>
+                <div class="bot-status">
+                    <span class="loader"></span>
+                    Bot is actively checking API for:<br>
+                    <span style="color:#fff; font-size:18px; display:inline-block; margin-top:10px;"><%= botConfig.productName %> (<%= botConfig.duration %>)</span>
                 </div>
-                <div class="form-group">
-                    <label>Select Duration</label>
-                    <select name="duration" id="durationSelect" required>
-                        <option value="" disabled selected>-- Select Product First --</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn">🚀 Generate Key</button>
-            </form>
+                
+                <form action="/bot/stop" method="POST">
+                    <button type="submit" class="btn btn-stop">🛑 Stop Bot</button>
+                </form>
+            <% } else { %>
+                <p style="color: #aaa; font-size: 14px; margin-bottom: 15px;">
+                    Select the key you want the bot to buy automatically when you have balance.
+                </p>
+                <form action="/bot/start" method="POST">
+                    <div class="form-group">
+                        <label>Select Game (Product)</label>
+                        <select name="product_id" id="productSelect" required>
+                            <option value="" disabled selected>-- Select Product --</option>
+                            <% Object.keys(products).forEach(pid => { %>
+                                <option value="<%= pid %>"><%= products[pid].name %> (PID: <%= pid %>)</option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Select Duration</label>
+                        <select name="duration" id="durationSelect" required>
+                            <option value="" disabled selected>-- Select Product First --</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">🚀 Start Auto-Bot</button>
+                </form>
+            <% } %>
         </div>
 
         <!-- History Section -->
         <div class="card">
-            <h2>Recent Keys</h2>
+            <h2>Generated Keys</h2>
             <% if (history && history.length > 0) { %>
                 <% history.forEach(h => { %>
                     <div class="history-item">
@@ -196,22 +241,24 @@
         const productSelect = document.getElementById('productSelect');
         const durationSelect = document.getElementById('durationSelect');
 
-        productSelect.addEventListener('change', function() {
-            const pid = this.value;
-            const product = productsData[pid];
-            
-            // Clear durations
-            durationSelect.innerHTML = '';
-            
-            if (product && product.durations) {
-                product.durations.forEach(dur => {
-                    const opt = document.createElement('option');
-                    opt.value = dur;
-                    opt.textContent = dur;
-                    durationSelect.appendChild(opt);
-                });
-            }
-        });
+        if (productSelect && durationSelect) {
+            productSelect.addEventListener('change', function() {
+                const pid = this.value;
+                const product = productsData[pid];
+                
+                // Clear durations
+                durationSelect.innerHTML = '';
+                
+                if (product && product.durations) {
+                    product.durations.forEach(dur => {
+                        const opt = document.createElement('option');
+                        opt.value = dur;
+                        opt.textContent = dur;
+                        durationSelect.appendChild(opt);
+                    });
+                }
+            });
+        }
     </script>
 </body>
 </html>
