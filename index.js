@@ -118,12 +118,10 @@ server.listen(PORT, () => {
   console.log(`[SERVER] ✅ HTTP server running on port ${PORT}`);
 });
 
-// ─── Send Email via Resend (HTTP API — works on Render!) ─────
-
-// ─── Send Email ───────────────────────────────────────────
+// ─── Send Email via Resend ────────────────────────────────
 async function sendEmail(duration, price, key, rawResponse) {
-  await resend.emails.send({
-    from: 'onboarding@resend.dev',
+  const { error } = await resend.emails.send({
+    from: 'XYZ Bot <onboarding@resend.dev>',
     to: NOTIFY_EMAIL,
     subject: `✅ Key Ready! ${duration} - XYZ Cheats`,
     html: `
@@ -146,10 +144,11 @@ async function sendEmail(duration, price, key, rawResponse) {
         </div>
       </div>
     `
-  };
-  await transporter.sendMail(mailOptions);
+  });
+  if (error) throw new Error(error.message);
   console.log(`[EMAIL] ✅ Sent to ${NOTIFY_EMAIL}`);
 }
+
 
 // ─── Buy Key ─────────────────────────────────────────────
 async function buyKey(duration) {
