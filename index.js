@@ -92,7 +92,7 @@ const checkAuth = (req, res, next) => {
 };
 
 // ─── Helper Functions ─────────────────────────────────────
-async function buyKey(product_id, duration) {
+async function buyKey(product_id, duration, user_android_id = null) {
   const product = PRODUCTS[product_id];
   if (!product) throw new Error("Invalid Product ID");
 
@@ -104,8 +104,8 @@ async function buyKey(product_id, duration) {
   };
 
   if (product.requiresAndroidId) {
-    // Generate random android ID or use from env
-    payload.android_id = ANDROID_ID || Math.random().toString(16).substring(2, 18);
+    // Generate random android ID or use from env if not provided by user
+    payload.android_id = user_android_id || ANDROID_ID || Math.random().toString(16).substring(2, 18);
   }
 
   const data = qs.stringify(payload);
@@ -217,14 +217,21 @@ app.get('/', checkAuth, async (req, res) => {
 });
 
 app.post('/bot/start', checkAuth, (req, res) => {
-    const { product_id, duration } = req.body;
+    const { product_id, duration, android_id } = req.body;
     const product = PRODUCTS[product_id];
     
     if (!product || !product.durations.includes(duration)) return res.redirect('/');
     
     if (activeBotTask) clearInterval(activeBotTask);
     
-    botConfig = { product_id, duration, productName: product.name, checks: 0 };
+    botConfig = { 
+        product_id, 
+        duration, 
+        productName: product.name, 
+        checks: 0, 
+        android_id: android_id ? android_id.trim() : null 
+    };
+    
     const startMsg = `Started checking for ${product.name} - ${duration}`;
     console.log(`[BOT] ${startMsg}`);
     broadcastLog(startMsg, 'info');
@@ -235,7 +242,7 @@ app.post('/bot/start', checkAuth, (req, res) => {
         try {
             broadcastLog(`Attempt #${botConfig.checks}: Checking balance for ${botConfig.productName}...`, 'warning');
             
-            const buyRes = await buyKey(botConfig.product_id, botConfig.duration);
+            const buyRes = await buyKey(botConfig.product_id, botConfig.duration, botConfig.android_id);
             const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
             
             if (resStr.toLowerCase().includes('low balance')) {

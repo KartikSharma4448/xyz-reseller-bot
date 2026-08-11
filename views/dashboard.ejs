@@ -72,7 +72,7 @@
             color: #aaa;
             font-size: 14px;
         }
-        .form-group select {
+        .form-group select, .form-group input {
             width: 100%;
             padding: 12px;
             background: #0f3460;
@@ -81,6 +81,9 @@
             border-radius: 8px;
             outline: none;
             font-size: 15px;
+        }
+        .form-group input::placeholder {
+            color: #555;
         }
         .btn {
             width: 100%;
@@ -229,6 +232,10 @@
                             <option value="" disabled selected>-- Select Product First --</option>
                         </select>
                     </div>
+                    <div class="form-group" id="androidIdGroup" style="display: none;">
+                        <label>Android Device ID (Required for V1)</label>
+                        <input type="text" name="android_id" placeholder="Leave blank to Auto-Generate">
+                    </div>
                     <button type="submit" class="btn">🚀 Start Auto-Bot</button>
                 </form>
             <% } %>
@@ -271,6 +278,7 @@
         
         const productSelect = document.getElementById('productSelect');
         const durationSelect = document.getElementById('durationSelect');
+        const androidIdGroup = document.getElementById('androidIdGroup');
 
         if (productSelect && durationSelect) {
             productSelect.addEventListener('change', function() {
@@ -280,13 +288,22 @@
                 // Clear durations
                 durationSelect.innerHTML = '';
                 
-                if (product && product.durations) {
-                    product.durations.forEach(dur => {
-                        const opt = document.createElement('option');
-                        opt.value = dur;
-                        opt.textContent = dur;
-                        durationSelect.appendChild(opt);
-                    });
+                if (product) {
+                    if (product.durations) {
+                        product.durations.forEach(dur => {
+                            const opt = document.createElement('option');
+                            opt.value = dur;
+                            opt.textContent = dur;
+                            durationSelect.appendChild(opt);
+                        });
+                    }
+                    
+                    // Show/Hide Android ID field based on requirement
+                    if (product.requiresAndroidId) {
+                        androidIdGroup.style.display = 'block';
+                    } else {
+                        androidIdGroup.style.display = 'none';
+                    }
                 }
             });
         }
