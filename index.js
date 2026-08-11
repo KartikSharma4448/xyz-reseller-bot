@@ -12,6 +12,7 @@ const ANDROID_ID   = process.env.ANDROID_ID;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 const RESEND_KEY   = process.env.RESEND_API_KEY;
 const INTERVAL_MS  = parseInt(process.env.CHECK_INTERVAL_MS) || 15000;
+const MOCK_PAYMENT = process.env.MOCK_PAYMENT === 'true';
 
 const resend = new Resend(RESEND_KEY);
 const PORT         = process.env.PORT || 3000;
@@ -154,6 +155,15 @@ async function sendEmail(duration, price, key, rawResponse) {
 
 // ─── Buy Key ─────────────────────────────────────────────
 async function buyKey(duration) {
+  if (MOCK_PAYMENT) {
+    console.log(`[MOCK] 🧪 Fake payment successful for ${duration}`);
+    return {
+      status: 'success',
+      key: `MOCK-${Math.random().toString(36).substring(2, 15).toUpperCase()}-KEY`,
+      msg: 'Mock key generated successfully'
+    };
+  }
+
   const data = qs.stringify({
     api_key:    API_KEY,
     action:     'buy',
