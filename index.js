@@ -37,6 +37,7 @@ let lastBalance = '₹0';
 let attempt = 0;
 let keyGenerated = false;
 let keyHistory = []; // All generated keys history
+let failedCount = 0;  // Failed attempts counter
 
 // ─── Simple HTTP Server (keeps Render alive) ──────────────
 const server = http.createServer((req, res) => {
@@ -226,6 +227,40 @@ async function run() {
 
     } catch (err) {
       console.log(`[ERR] ${item.duration}: ${err.message}`);
+    }
+  }
+
+  // ─── Har 2 failed checks pe email ────────────────────────
+  failedCount++;
+  console.log(`[FAIL] Failed attempt #${failedCount}`);
+
+  if (failedCount % 2 === 0) {
+    console.log(`[ALERT] 2 fails ho gaye — balance low email bhej raha hoon...`);
+    try {
+      await transporter.sendMail({
+        from: GMAIL_USER,
+        to: NOTIFY_EMAIL,
+        subject: `⚠️ Balance Low! Recharge Karo — XYZ Bot`,
+        html: `
+          <div style="font-family:Arial;max-width:480px;margin:auto;border-radius:12px;overflow:hidden;">
+            <div style="background:#1a1a2e;padding:20px;text-align:center;border-bottom:3px solid #e94560;">
+              <h2 style="color:#e94560;margin:0;">⚠️ Balance Low Alert!</h2>
+            </div>
+            <div style="background:#f9f9f9;padding:25px;">
+              <p style="font-size:15px;color:#333;">Bot ne <strong>${failedCount}</strong> baar check kiya — balance kaafi nahi hai key generate karne ke liye।</p>
+              <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:15px;margin:15px 0;">
+                <p style="color:#856404;margin:0;">💰 <strong>Minimum ₹10 recharge karo</strong> taaki bot automatically key generate kar sake!</p>
+              </div>
+              <p style="color:#888;font-size:12px;">Total failed attempts: ${failedCount} | Bot har 15 seconds mein check karta hai।</p>
+              <hr/>
+              <p style="color:#aaa;font-size:11px;text-align:center;">XYZ Cheats Auto Bot 🤖</p>
+            </div>
+          </div>
+        `
+      });
+      console.log(`[ALERT EMAIL] ✅ Low balance email sent!`);
+    } catch (e) {
+      console.log(`[ALERT EMAIL ERROR] ${e.message}`);
     }
   }
 
