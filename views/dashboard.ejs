@@ -133,7 +133,7 @@
 </head>
 <body>
     <nav class="navbar">
-        <h1>🎮 XYZ Panel</h1>
+        <h1>🎮 Reseller Panel</h1>
         <div class="user-info">
             <span>Welcome, <%= user.email %></span>
             <a href="/logout">Logout</a>
@@ -146,11 +146,18 @@
             <h2>Generate New Key</h2>
             <form action="/generate" method="POST">
                 <div class="form-group">
-                    <label>Select Duration</label>
-                    <select name="duration" required>
-                        <% prices.forEach(p => { %>
-                            <option value="<%= p.duration %>"><%= p.duration %> (₹<%= p.price %>)</option>
+                    <label>Select Game (Product)</label>
+                    <select name="product_id" id="productSelect" required>
+                        <option value="" disabled selected>-- Select Product --</option>
+                        <% Object.keys(products).forEach(pid => { %>
+                            <option value="<%= pid %>"><%= products[pid].name %> (PID: <%= pid %>)</option>
                         <% }) %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Select Duration</label>
+                    <select name="duration" id="durationSelect" required>
+                        <option value="" disabled selected>-- Select Product First --</option>
                     </select>
                 </div>
                 <button type="submit" class="btn">🚀 Generate Key</button>
@@ -164,13 +171,13 @@
                 <% history.forEach(h => { %>
                     <div class="history-item">
                         <div class="header">
-                            <strong style="color: #e94560;"><%= h.duration %> - ₹<%= h.price %></strong>
+                            <strong style="color: #e94560;"><%= h.productName %></strong>
                             <span style="font-size: 12px; color: #888;"><%= h.time %></span>
                         </div>
+                        <div style="font-size: 13px; color: #ccc; margin-bottom: 10px;">Duration: <%= h.duration %></div>
                         <div class="key-box"><%= h.key %></div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 11px; color: #ffc107;">⏰ Expires: <%= h.expiresAt || 'N/A' %></span>
-                            <button onclick="navigator.clipboard.writeText('<%= h.key %>')" style="background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">Copy</button>
+                        <div style="text-align: right;">
+                            <button onclick="navigator.clipboard.writeText('<%= h.key %>')" style="background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">Copy Key</button>
                         </div>
                     </div>
                 <% }) %>
@@ -181,5 +188,30 @@
             <% } %>
         </div>
     </div>
+
+    <!-- Pass the products data to frontend JS -->
+    <script>
+        const productsData = <%- JSON.stringify(products) %>;
+        
+        const productSelect = document.getElementById('productSelect');
+        const durationSelect = document.getElementById('durationSelect');
+
+        productSelect.addEventListener('change', function() {
+            const pid = this.value;
+            const product = productsData[pid];
+            
+            // Clear durations
+            durationSelect.innerHTML = '';
+            
+            if (product && product.durations) {
+                product.durations.forEach(dur => {
+                    const opt = document.createElement('option');
+                    opt.value = dur;
+                    opt.textContent = dur;
+                    durationSelect.appendChild(opt);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

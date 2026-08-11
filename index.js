@@ -24,18 +24,49 @@ const resend = new Resend(RESEND_KEY);
 const PORT = process.env.PORT || 3000;
 const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
 
-// ─── Price List ───────────────────────────────────────────
-const PRICE_LIST = [
-  { duration: '7 DaYs',   price: 1680, ms: 7  * 24 * 60 * 60 * 1000 },
-  { duration: '5 DaYs',   price: 1200, ms: 5  * 24 * 60 * 60 * 1000 },
-  { duration: '3 DaYs',   price: 720,  ms: 3  * 24 * 60 * 60 * 1000 },
-  { duration: '2 DaYs',   price: 480,  ms: 2  * 24 * 60 * 60 * 1000 },
-  { duration: '1 DaYs',   price: 240,  ms: 1  * 24 * 60 * 60 * 1000 },
-  { duration: '12 Hours', price: 120,  ms: 12 * 60 * 60 * 1000       },
-  { duration: '6 Hours',  price: 60,   ms: 6  * 60 * 60 * 1000       },
-  { duration: '3 Hours',  price: 30,   ms: 3  * 60 * 60 * 1000       },
-  { duration: '1 Hours',  price: 10,   ms: 1  * 60 * 60 * 1000       },
-];
+// ─── Products ───────────────────────────────────────────
+const PRODUCTS = {
+  133: {
+    name: 'BALA MOD XYZ FF MAIN ID NONROOT',
+    requiresAndroidId: true,
+    durations: ['1 Hours', '3 Hours', '6 Hours', '12 Hours', '1 DaYs', '2 DaYs', '3 DaYs', '5 DaYs', '7 DaYs']
+  },
+  49: {
+    name: 'BR MOD FF PC VERSION',
+    requiresAndroidId: false,
+    durations: ['1 Day Pc Aim Silent', '1 Day Pc Modmenu x86', '10 Day Pc Modmenu x86', '10 Days Pc Aim Silent', '10 Days Pc Bypass + Silent', '30 Day Pc Modmenu x86', '30 Days Pc Aim Silent', '30 Days Pc Bypass + Silent']
+  },
+  67: {
+    name: 'BR MOD FF ROOT ANDROID',
+    requiresAndroidId: false,
+    durations: ['1 DaYs', '7 DaYs', '15 DaYs', '30 DaYs']
+  },
+  59: {
+    name: 'DRIPCLIENT 8BP NONROOT ANDROID',
+    requiresAndroidId: false,
+    durations: ['1 DaYs', '7 DaYs', '30 DaYs']
+  },
+  62: {
+    name: 'DRIPCLIENT FF NONROOT APKMOD',
+    requiresAndroidId: false,
+    durations: ['1 DaYS NONROOT', '3 DaYS NONROOT', '7 DaYS NONROOT', '15 DaYS NONROOT', '30 DaYS NONROOT']
+  },
+  44: {
+    name: 'DRIPCLIENT FF PC AIMKILL',
+    requiresAndroidId: false,
+    durations: ['7 DaYS PC AIMKILL', '15 DaYS PC AIMKILL', '30 DaYS PC AIMKILL']
+  },
+  91: {
+    name: 'DRIPCLIENT PROXY FF NONROOT ANDROID',
+    requiresAndroidId: false,
+    durations: ['1 DaYs', '3 DaYs', '7 DaYs', '30 DaYs']
+  },
+  136: {
+    name: 'BALA MODS XYZ V2',
+    requiresAndroidId: false,
+    durations: ['1 Hours']
+  }
+};
 
 let keyHistory = []; // In-memory history for panel
 
@@ -62,14 +93,24 @@ const checkAuth = (req, res, next) => {
 };
 
 // ─── Helper Functions ─────────────────────────────────────
-async function buyKey(duration) {
-  const data = qs.stringify({
+async function buyKey(product_id, duration) {
+  const product = PRODUCTS[product_id];
+  if (!product) throw new Error("Invalid Product ID");
+
+  let payload = {
     api_key:    API_KEY,
     action:     'buy',
-    product_id: PRODUCT_ID,
-    duration:   duration,
-    android_id: ANDROID_ID
-  });
+    product_id: product_id,
+    duration:   duration
+  };
+
+  if (product.requiresAndroidId) {
+    // Generate random android ID or use from env
+    payload.android_id = ANDROID_ID || Math.random().toString(16).substring(2, 18);
+  }
+
+  const data = qs.stringify(payload);
+  
   const res = await axios.post(API_URL, data, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -80,20 +121,19 @@ async function buyKey(duration) {
   return res.data;
 }
 
-async function sendEmail(duration, price, key, rawResponse) {
+async function sendEmail(productName, duration, key, rawResponse) {
   const { error } = await resend.emails.send({
     from: 'XYZ Bot <onboarding@resend.dev>',
     to: NOTIFY_EMAIL,
-    subject: `✅ Key Ready! ${duration} - XYZ Cheats`,
+    subject: `✅ Key Ready! ${duration} - ${productName}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
         <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:25px;text-align:center;">
-          <h2 style="color:#e94560;margin:0;">🎮 XYZ Cheats</h2>
+          <h2 style="color:#e94560;margin:0;">🎮 ${productName}</h2>
           <p style="color:#aaa;margin:5px 0 0;">Auto Key Generator</p>
         </div>
         <div style="padding:25px;background:#f9f9f9;">
           <p style="font-size:15px;">✅ <strong>${duration}</strong> key generate ho gayi!</p>
-          <p style="font-size:13px;color:#666;">💸 Balance used: <strong>₹${price}</strong></p>
           <p style="font-size:13px;font-weight:bold;color:#555;margin-bottom:5px;">🔑 Your Key:</p>
           <div style="background:#1a1a2e;color:#00ff88;font-family:monospace;font-size:16px;padding:15px;border-radius:8px;text-align:center;word-break:break-all;">
             ${key}
@@ -101,7 +141,7 @@ async function sendEmail(duration, price, key, rawResponse) {
           <p style="margin-top:20px;font-size:12px;color:#999;font-weight:bold;">📋 Full Response:</p>
           <pre style="background:#eee;padding:10px;border-radius:6px;font-size:11px;overflow:auto;white-space:pre-wrap;">${JSON.stringify(rawResponse, null, 2)}</pre>
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;"/>
-          <p style="color:#aaa;font-size:11px;text-align:center;">📱 Android ID: ${ANDROID_ID} | PID: ${PRODUCT_ID}</p>
+          <p style="color:#aaa;font-size:11px;text-align:center;">Reseller Panel Auto Bot 🤖</p>
         </div>
       </div>
     `
@@ -143,39 +183,36 @@ app.get('/logout', async (req, res) => {
 app.get('/', checkAuth, (req, res) => {
     res.render('dashboard', { 
         user: req.session.user,
-        prices: PRICE_LIST,
+        products: PRODUCTS,
         history: keyHistory
     });
 });
 
 app.post('/generate', checkAuth, async (req, res) => {
-    const { duration } = req.body;
-    const item = PRICE_LIST.find(p => p.duration === duration);
-    if (!item) return res.redirect('/');
+    const { product_id, duration } = req.body;
+    const product = PRODUCTS[product_id];
+    if (!product || !product.durations.includes(duration)) return res.redirect('/');
 
     try {
-        const buyRes = await buyKey(item.duration);
+        const buyRes = await buyKey(product_id, duration);
         const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
         
         if (resStr.toLowerCase().includes('low balance')) {
             console.log(`[ERROR] Low Balance`);
-            // You can flash error messages here in future
         } else if (resStr.toLowerCase().includes('error')) {
             console.log(`[ERROR] ${resStr}`);
         } else {
             // Success
             const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
-            const expiryTime = new Date(Date.now() + item.ms);
             
             keyHistory.unshift({
+                productName: product.name,
                 key: key,
-                duration: item.duration,
-                price: item.price,
-                time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-                expiresAt: expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                duration: duration,
+                time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
             });
 
-            await sendEmail(item.duration, item.price, key, buyRes);
+            await sendEmail(product.name, duration, key, buyRes);
         }
     } catch (err) {
         console.error(`[GENERATE ERROR]`, err.message);
