@@ -157,20 +157,14 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { password } = req.body;
     
-    // Supabase Auth
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
-
-    if (error) {
-        return res.render('login', { error: error.message });
+    if (password === 'k@rtiksharmaisgod4448') {
+        req.session.user = { authenticated: true, role: 'admin' };
+        res.redirect('/');
+    } else {
+        return res.render('login', { error: 'Invalid Password!' });
     }
-
-    req.session.user = data.user;
-    res.redirect('/');
 });
 
 app.get('/logout', async (req, res) => {
