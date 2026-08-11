@@ -2,6 +2,7 @@ require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const qs = require('querystring');
+const http = require('http');
 
 // ─── Config ───────────────────────────────────────────────
 const API_KEY      = process.env.API_KEY;
@@ -12,10 +13,11 @@ const GMAIL_USER   = process.env.GMAIL_USER;
 const GMAIL_PASS   = process.env.GMAIL_PASS;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 const INTERVAL_MS  = parseInt(process.env.CHECK_INTERVAL_MS) || 15000;
+const PORT         = process.env.PORT || 3000;
 
 const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
 
-// ─── Price List (sorted: highest first = best value first) ─
+// ─── Price List (highest first) ───────────────────────────
 const PRICE_LIST = [
   { duration: '7 DaYs',  price: 1680 },
   { duration: '5 DaYs',  price: 1200 },
@@ -27,6 +29,35 @@ const PRICE_LIST = [
   { duration: '3 Hours',  price: 30  },
   { duration: '1 Hours',  price: 10  },
 ];
+
+// ─── Bot State ────────────────────────────────────────────
+let botStatus = 'running';
+let lastCheck = 'Never';
+let lastBalance = '₹0';
+let attempt = 0;
+let keyGenerated = false;
+
+// ─── Simple HTTP Server (keeps Render alive) ──────────────
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(`
+    <html>
+      <head><title>XYZ Bot Status</title></head>
+      <body style="font-family:Arial;background:#1a1a2e;color:#fff;padding:30px;text-align:center;">
+        <h2 style="color:#e94560;">🤖 XYZ Cheats Bot</h2>
+        <p>Status: <strong style="color:#00ff88;">${botStatus.toUpperCase()}</strong></p>
+        <p>Last Check: ${lastCheck}</p>
+        <p>Last Balance: ${lastBalance}</p>
+        <p>Checks Done: ${attempt}</p>
+        <p>Key Generated: ${keyGenerated ? '✅ YES' : '❌ Not yet'}</p>
+      </body>
+    </html>
+  `);
+});
+
+server.listen(PORT, () => {
+  console.log(`[SERVER] ✅ HTTP server running on port ${PORT}`);
+});
 
 // ─── Email Transporter ────────────────────────────────────
 const transporter = nodemailer.createTransport({
@@ -43,32 +74,26 @@ async function sendEmail(duration, price, key, rawResponse) {
     html: `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
         <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:25px;text-align:center;">
-          <h2 style="color:#e94560;margin:0;font-size:22px;">🎮 XYZ Cheats</h2>
+          <h2 style="color:#e94560;margin:0;">🎮 XYZ Cheats</h2>
           <p style="color:#aaa;margin:5px 0 0;">Auto Key Generator</p>
         </div>
         <div style="padding:25px;background:#f9f9f9;">
-          <p style="font-size:15px;color:#333;">✅ <strong>${duration}</strong> key generate ho gayi!</p>
+          <p style="font-size:15px;">✅ <strong>${duration}</strong> key generate ho gayi!</p>
           <p style="font-size:13px;color:#666;">💸 Balance used: <strong>₹${price}</strong></p>
-
           <p style="font-size:13px;font-weight:bold;color:#555;margin-bottom:5px;">🔑 Your Key:</p>
-          <div style="background:#1a1a2e;color:#00ff88;font-family:monospace;font-size:16px;padding:15px;border-radius:8px;text-align:center;letter-spacing:2px;word-break:break-all;">
+          <div style="background:#1a1a2e;color:#00ff88;font-family:monospace;font-size:16px;padding:15px;border-radius:8px;text-align:center;word-break:break-all;">
             ${key}
           </div>
-
-          <p style="margin-top:20px;font-size:12px;color:#999;font-weight:bold;">📋 Full API Response:</p>
+          <p style="margin-top:20px;font-size:12px;color:#999;font-weight:bold;">📋 Full Response:</p>
           <pre style="background:#eee;padding:10px;border-radius:6px;font-size:11px;overflow:auto;white-space:pre-wrap;">${JSON.stringify(rawResponse, null, 2)}</pre>
-
           <hr style="border:none;border-top:1px solid #ddd;margin:20px 0;"/>
-          <p style="color:#aaa;font-size:11px;text-align:center;">
-            📱 Android ID: ${ANDROID_ID} &nbsp;|&nbsp; PID: ${PRODUCT_ID}
-          </p>
+          <p style="color:#aaa;font-size:11px;text-align:center;">📱 Android ID: ${ANDROID_ID} | PID: ${PRODUCT_ID}</p>
         </div>
       </div>
     `
   };
-
   await transporter.sendMail(mailOptions);
-  console.log(`[EMAIL] ✅ Key email sent to ${NOTIFY_EMAIL}`);
+  console.log(`[EMAIL] ✅ Sent to ${NOTIFY_EMAIL}`);
 }
 
 // ─── Check Balance ────────────────────────────────────────
@@ -84,11 +109,9 @@ async function checkBalance() {
   return res.data;
 }
 
-// ─── Extract Balance Number ───────────────────────────────
 function extractBalance(data) {
   const str = typeof data === 'object' ? JSON.stringify(data) : String(data);
-  // Match ₹0.00 or just a number
-  const match = str.match(/[\u20b9₹]?\s*([\d]+\.?\d*)/);
+  const match = str.match(/[\u20b9]?\s*([\d]+\.?\d*)/);
   return match ? parseFloat(match[1]) : 0;
 }
 
@@ -101,7 +124,6 @@ async function buyKey(duration) {
     duration:   duration,
     android_id: ANDROID_ID
   });
-
   const res = await axios.post(API_URL, data, {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -113,54 +135,48 @@ async function buyKey(duration) {
 }
 
 // ─── Main Loop ────────────────────────────────────────────
-let attempt = 0;
-
 async function run() {
+  if (keyGenerated) return; // Already done
+
   attempt++;
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+  lastCheck = now;
   console.log(`\n[${now}] 🔄 Check #${attempt}`);
 
   try {
-    // 1. Balance check karo
     const balRaw = await checkBalance();
     const balance = extractBalance(balRaw);
+    lastBalance = `₹${balance}`;
     console.log(`[BALANCE] ₹${balance}`);
 
     if (balance <= 0) {
-      console.log(`[WAIT] Balance nahi hai. ${INTERVAL_MS / 1000}s baad check...`);
+      console.log(`[WAIT] Balance nahi hai...`);
       return;
     }
 
-    // 2. Sabse badi duration dhundo jo afford ho sake
     const best = PRICE_LIST.find(p => balance >= p.price);
-
     if (!best) {
-      console.log(`[WAIT] Balance ₹${balance} hai lekin minimum ₹10 chahiye. Wait...`);
+      console.log(`[WAIT] Balance ₹${balance} — minimum ₹10 chahiye`);
       return;
     }
 
-    console.log(`[BUY] Balance ₹${balance} → Best key: ${best.duration} (₹${best.price})`);
-
-    // 3. Key buy karo
+    console.log(`[BUY] ₹${balance} → Best: ${best.duration} (₹${best.price})`);
     const buyRes = await buyKey(best.duration);
     console.log(`[BUY] Response:`, buyRes);
 
     const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
-
     if (resStr.toLowerCase().includes('error') || resStr.toLowerCase().includes('low balance')) {
-      console.log(`[ERROR] Key nahi bani: ${resStr}`);
+      console.log(`[ERROR] ${resStr}`);
       return;
     }
 
-    // 4. Key extract karo
     const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
     console.log(`[SUCCESS] 🎉 Key: ${key}`);
 
-    // 5. Email bhejo
+    keyGenerated = true;
+    botStatus = 'done - key generated!';
     await sendEmail(best.duration, best.price, key, buyRes);
-
-    console.log(`[DONE] ✅ Bot kaam kar chuka hai! Process exit.`);
-    process.exit(0);
+    console.log(`[DONE] ✅ Key email bhej diya! Bot ab sirf ping ke liye alive hai.`);
 
   } catch (err) {
     console.log(`[ERROR] ${err.message}`);
@@ -168,12 +184,8 @@ async function run() {
 }
 
 // ─── Start ────────────────────────────────────────────────
-console.log('🤖 XYZ Cheats Smart Bot Started!');
-console.log(`📱 Android ID : ${ANDROID_ID}`);
-console.log(`📦 Product ID : ${PRODUCT_ID}`);
-console.log(`📧 Notify     : ${NOTIFY_EMAIL}`);
-console.log(`⚡ Interval   : ${INTERVAL_MS / 1000} seconds`);
-console.log(`\n💡 Logic: Jaise hi balance aayega → Maximum duration ki key buy hogi!\n`);
+console.log('🤖 XYZ Cheats Smart Bot Started! (Free Web Service Mode)');
+console.log(`⚡ Checking every ${INTERVAL_MS / 1000} seconds`);
 
 run();
 setInterval(run, INTERVAL_MS);
