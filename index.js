@@ -1,8 +1,12 @@
 require('dotenv').config();
+const express = require('express');
+const session = require('express-session');
+const cookieParser = require('cookie-parser');
+const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const { Resend } = require('resend');
 const qs = require('querystring');
-const http = require('http');
+const path = require('path');
 
 // ─── Config ───────────────────────────────────────────────
 const API_KEY      = process.env.API_KEY;
@@ -11,14 +15,16 @@ const PRODUCT_ID   = process.env.PRODUCT_ID;
 const ANDROID_ID   = process.env.ANDROID_ID;
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL;
 const RESEND_KEY   = process.env.RESEND_API_KEY;
-const INTERVAL_MS  = parseInt(process.env.CHECK_INTERVAL_MS) || 15000;
 
+const SUPABASE_URL = process.env.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_KEY';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const resend = new Resend(RESEND_KEY);
-const PORT         = process.env.PORT || 3000;
-
+const PORT = process.env.PORT || 3000;
 const API_URL = 'https://xyzcheats.com/api/reseller_v1.php';
 
-// ─── Price List (highest first) ───────────────────────────────
+// ─── Price List ───────────────────────────────────────────
 const PRICE_LIST = [
   { duration: '7 DaYs',   price: 1680, ms: 7  * 24 * 60 * 60 * 1000 },
   { duration: '5 DaYs',   price: 1200, ms: 5  * 24 * 60 * 60 * 1000 },
@@ -31,96 +37,49 @@ const PRICE_LIST = [
   { duration: '1 Hours',  price: 10,   ms: 1  * 60 * 60 * 1000       },
 ];
 
-// ─── Bot State ────────────────────────────────────────────
-let botStatus = 'running';
-let lastCheck = 'Never';
-let lastBalance = '₹0';
-let attempt = 0;
-let keyGenerated = false;
-let keyHistory = [];
+let keyHistory = []; // In-memory history for panel
 
-// ─── Simple HTTP Server (keeps Render alive) ──────────────
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+// ─── Express App Setup ────────────────────────────────────
+const app = express();
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(session({
+    secret: 'xyz-panel-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set to true if using HTTPS
+}));
 
-  const historyHTML = keyHistory.length === 0
-    ? `<p style="color:#888;text-align:center;margin-top:20px;">Abhi tak koi key generate nahi hui...</p>`
-    : keyHistory.map((k, i) => `
-      <div style="background:#0f3460;border-radius:10px;padding:15px;margin-bottom:15px;text-align:left;border-left:4px solid #e94560;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <span style="color:#e94560;font-weight:bold;font-size:13px;">#${keyHistory.length - i} &nbsp;|&nbsp; ${k.duration} &nbsp;|&nbsp; ₹${k.price}</span>
-          <span style="color:#888;font-size:11px;">${k.time}</span>
-        </div>
-        <div style="background:#1a1a2e;border-radius:6px;padding:10px;font-family:monospace;font-size:12px;color:#00ff88;word-break:break-all;">${k.key}</div>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button onclick="navigator.clipboard.writeText('${k.key}')" style="background:#e94560;color:#fff;border:none;padding:5px 12px;border-radius:5px;cursor:pointer;font-size:12px;">📋 Copy Key</button>
-          <span style="color:#ffc107;font-size:11px;">⏰ Expires: ${k.expiresAt || 'N/A'}</span>
-        </div>
-      </div>
-    `).join('');
+// ─── Middleware: Check Auth ───────────────────────────────
+const checkAuth = (req, res, next) => {
+    if (req.session.user) {
+        next();
+    } else {
+        res.redirect('/login');
+    }
+};
 
-  res.end(`<!DOCTYPE html>
-    <html>
-    <head>
-      <title>XYZ Cheats Bot</title>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #fff; min-height: 100vh; }
-        .header { background: linear-gradient(135deg,#16213e,#0f3460); padding: 25px; text-align: center; border-bottom: 2px solid #e94560; }
-        .header h1 { color: #e94560; font-size: 24px; } 
-        .header p { color: #aaa; font-size: 13px; margin-top: 5px; }
-        .stats { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; justify-content: center; }
-        .stat { background: #16213e; border-radius: 10px; padding: 15px 25px; text-align: center; min-width: 140px; border: 1px solid #0f3460; }
-        .stat .val { font-size: 22px; font-weight: bold; color: #00ff88; }
-        .stat .lbl { font-size: 11px; color: #888; margin-top: 4px; }
-        .section { padding: 0 20px 20px; max-width: 800px; margin: 0 auto; }
-        .section h2 { color: #e94560; margin-bottom: 15px; font-size: 18px; border-bottom: 1px solid #0f3460; padding-bottom: 10px; }
-        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-        .badge.running { background: #00ff8833; color: #00ff88; }
-        .badge.done { background: #e9456033; color: #e94560; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>🤖 XYZ Cheats Bot</h1>
-        <p>Auto Key Generator Dashboard</p>
-      </div>
+// ─── Helper Functions ─────────────────────────────────────
+async function buyKey(duration) {
+  const data = qs.stringify({
+    api_key:    API_KEY,
+    action:     'buy',
+    product_id: PRODUCT_ID,
+    duration:   duration,
+    android_id: ANDROID_ID
+  });
+  const res = await axios.post(API_URL, data, {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'x-master-key': MASTER_KEY
+    },
+    timeout: 15000
+  });
+  return res.data;
+}
 
-      <div class="stats">
-        <div class="stat">
-          <div class="val"><span class="badge ${keyGenerated ? 'done' : 'running'}">${botStatus.toUpperCase()}</span></div>
-          <div class="lbl">Bot Status</div>
-        </div>
-        <div class="stat">
-          <div class="val">${attempt}</div>
-          <div class="lbl">Total Checks</div>
-        </div>
-        <div class="stat">
-          <div class="val">${keyHistory.length}</div>
-          <div class="lbl">Keys Generated</div>
-        </div>
-        <div class="stat">
-          <div class="val" style="font-size:14px;">${lastCheck}</div>
-          <div class="lbl">Last Check</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>🔑 Generated Keys History</h2>
-        ${historyHTML}
-      </div>
-    </body>
-    </html>
-  `);
-});
-
-server.listen(PORT, () => {
-  console.log(`[SERVER] ✅ HTTP server running on port ${PORT}`);
-});
-
-// ─── Send Email via Resend ────────────────────────────────
 async function sendEmail(duration, price, key, rawResponse) {
   const { error } = await resend.emails.send({
     from: 'XYZ Bot <onboarding@resend.dev>',
@@ -151,99 +110,81 @@ async function sendEmail(duration, price, key, rawResponse) {
   console.log(`[EMAIL] ✅ Sent to ${NOTIFY_EMAIL}`);
 }
 
+// ─── Routes ───────────────────────────────────────────────
 
-// ─── Buy Key ─────────────────────────────────────────────
-async function buyKey(duration) {
-  const data = qs.stringify({
-    api_key:    API_KEY,
-    action:     'buy',
-    product_id: PRODUCT_ID,
-    duration:   duration,
-    android_id: ANDROID_ID
-  });
-  const res = await axios.post(API_URL, data, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'x-master-key': MASTER_KEY
-    },
-    timeout: 15000
-  });
-  return res.data;
-}
+app.get('/login', (req, res) => {
+    if (req.session.user) return res.redirect('/');
+    res.render('login', { error: null });
+});
 
-// ─── Main Loop ────────────────────────────────────────────
-async function run() {
-  if (keyGenerated) return;
+app.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    
+    // Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
 
-  attempt++;
-  const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-  lastCheck = now;
-  console.log(`\n[${now}] 🔄 Attempt #${attempt} — Buy try kar raha hoon...`);
-
-  // Sabse badi duration se start karo, neeche aao
-  for (const item of PRICE_LIST) {
-    try {
-      console.log(`[TRY] ${item.duration} (₹${item.price})`);
-      const buyRes = await buyKey(item.duration);
-      const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
-      console.log(`[RESP] ${resStr}`);
-
-      // Low balance — chhoti duration try karo
-      if (resStr.toLowerCase().includes('low balance')) {
-        lastBalance = 'Low (trying smaller...)';
-        console.log(`[LOW] ₹ kam hai, chhoti key try karta hoon...`);
-        continue;
-      }
-
-      // Koi aur error
-      if (resStr.toLowerCase().includes('error')) {
-        console.log(`[ERROR] ${resStr}`);
-        continue;
-      }
-
-      // 🎉 Key mil gayi!
-      const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
-      console.log(`[SUCCESS] 🎉 Key: ${key}`);
-      lastBalance = `Used ₹${item.price}`;
-      keyGenerated = true;
-      botStatus = 'done - key generated!';
-
-      // History mein save karo
-      const expiryTime = new Date(Date.now() + item.ms);
-      keyHistory.unshift({
-        key: key,
-        duration: item.duration,
-        price: item.price,
-        time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-        expiresAt: expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
-      });
-
-      await sendEmail(item.duration, item.price, key, buyRes);
-      console.log(`[DONE] ✅ Email bhej diya!`);
-
-      // ⏰ Auto-renewal: key expire hone pe reset
-      console.log(`[EXPIRY] Key ${item.duration} baad expire hogi: ${expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-      setTimeout(() => {
-        console.log(`[EXPIRED] 🔄 Key expire ho gayi! Naya key lene ki koshish...`);
-        keyGenerated = false;
-        botStatus = 'running';
-        attempt = 0;
-        run(); // Turant try karo
-      }, item.ms);
-
-      return;
-
-    } catch (err) {
-      console.log(`[ERR] ${item.duration}: ${err.message}`);
+    if (error) {
+        return res.render('login', { error: error.message });
     }
-  }
 
-  console.log(`[WAIT] Balance nahi — 15s baad dobara try...`);
-}
+    req.session.user = data.user;
+    res.redirect('/');
+});
 
-// ─── Start ────────────────────────────────────────────────
-console.log('🤖 XYZ Cheats Smart Bot Started! (Free Web Service Mode)');
-console.log(`⚡ Checking every ${INTERVAL_MS / 1000} seconds`);
+app.get('/logout', async (req, res) => {
+    await supabase.auth.signOut();
+    req.session.destroy();
+    res.redirect('/login');
+});
 
-run();
-setInterval(run, INTERVAL_MS);
+app.get('/', checkAuth, (req, res) => {
+    res.render('dashboard', { 
+        user: req.session.user,
+        prices: PRICE_LIST,
+        history: keyHistory
+    });
+});
+
+app.post('/generate', checkAuth, async (req, res) => {
+    const { duration } = req.body;
+    const item = PRICE_LIST.find(p => p.duration === duration);
+    if (!item) return res.redirect('/');
+
+    try {
+        const buyRes = await buyKey(item.duration);
+        const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
+        
+        if (resStr.toLowerCase().includes('low balance')) {
+            console.log(`[ERROR] Low Balance`);
+            // You can flash error messages here in future
+        } else if (resStr.toLowerCase().includes('error')) {
+            console.log(`[ERROR] ${resStr}`);
+        } else {
+            // Success
+            const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
+            const expiryTime = new Date(Date.now() + item.ms);
+            
+            keyHistory.unshift({
+                key: key,
+                duration: item.duration,
+                price: item.price,
+                time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                expiresAt: expiryTime.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+            });
+
+            await sendEmail(item.duration, item.price, key, buyRes);
+        }
+    } catch (err) {
+        console.error(`[GENERATE ERROR]`, err.message);
+    }
+    
+    res.redirect('/');
+});
+
+// ─── Start Server ─────────────────────────────────────────
+app.listen(PORT, () => {
+    console.log(`🚀 Reseller Panel running on http://localhost:${PORT}`);
+});
