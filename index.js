@@ -96,25 +96,6 @@ async function sendEmail(duration, price, key, rawResponse) {
   console.log(`[EMAIL] ✅ Sent to ${NOTIFY_EMAIL}`);
 }
 
-// ─── Check Balance ────────────────────────────────────────
-async function checkBalance() {
-  const data = qs.stringify({ api_key: API_KEY, action: 'balance' });
-  const res = await axios.post(API_URL, data, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'x-master-key': MASTER_KEY
-    },
-    timeout: 10000
-  });
-  return res.data;
-}
-
-function extractBalance(data) {
-  const str = typeof data === 'object' ? JSON.stringify(data) : String(data);
-  const match = str.match(/[\u20b9]?\s*([\d]+\.?\d*)/);
-  return match ? parseFloat(match[1]) : 0;
-}
-
 // ─── Buy Key ─────────────────────────────────────────────
 async function buyKey(duration) {
   const data = qs.stringify({
@@ -136,51 +117,50 @@ async function buyKey(duration) {
 
 // ─── Main Loop ────────────────────────────────────────────
 async function run() {
-  if (keyGenerated) return; // Already done
+  if (keyGenerated) return;
 
   attempt++;
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
   lastCheck = now;
-  console.log(`\n[${now}] 🔄 Check #${attempt}`);
+  console.log(`\n[${now}] 🔄 Attempt #${attempt} — Buy try kar raha hoon...`);
 
-  try {
-    const balRaw = await checkBalance();
-    const balance = extractBalance(balRaw);
-    lastBalance = `₹${balance}`;
-    console.log(`[BALANCE] ₹${balance}`);
+  // Sabse badi duration se start karo, neeche aao
+  for (const item of PRICE_LIST) {
+    try {
+      console.log(`[TRY] ${item.duration} (₹${item.price})`);
+      const buyRes = await buyKey(item.duration);
+      const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
+      console.log(`[RESP] ${resStr}`);
 
-    if (balance <= 0) {
-      console.log(`[WAIT] Balance nahi hai...`);
+      // Low balance — chhoti duration try karo
+      if (resStr.toLowerCase().includes('low balance')) {
+        lastBalance = 'Low (trying smaller...)';
+        console.log(`[LOW] ₹ kam hai, chhoti key try karta hoon...`);
+        continue;
+      }
+
+      // Koi aur error
+      if (resStr.toLowerCase().includes('error')) {
+        console.log(`[ERROR] ${resStr}`);
+        continue;
+      }
+
+      // 🎉 Key mil gayi!
+      const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
+      console.log(`[SUCCESS] 🎉 Key: ${key}`);
+      lastBalance = `Used ₹${item.price}`;
+      keyGenerated = true;
+      botStatus = 'done - key generated!';
+      await sendEmail(item.duration, item.price, key, buyRes);
+      console.log(`[DONE] ✅ Email bhej diya!`);
       return;
+
+    } catch (err) {
+      console.log(`[ERR] ${item.duration}: ${err.message}`);
     }
-
-    const best = PRICE_LIST.find(p => balance >= p.price);
-    if (!best) {
-      console.log(`[WAIT] Balance ₹${balance} — minimum ₹10 chahiye`);
-      return;
-    }
-
-    console.log(`[BUY] ₹${balance} → Best: ${best.duration} (₹${best.price})`);
-    const buyRes = await buyKey(best.duration);
-    console.log(`[BUY] Response:`, buyRes);
-
-    const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
-    if (resStr.toLowerCase().includes('error') || resStr.toLowerCase().includes('low balance')) {
-      console.log(`[ERROR] ${resStr}`);
-      return;
-    }
-
-    const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
-    console.log(`[SUCCESS] 🎉 Key: ${key}`);
-
-    keyGenerated = true;
-    botStatus = 'done - key generated!';
-    await sendEmail(best.duration, best.price, key, buyRes);
-    console.log(`[DONE] ✅ Key email bhej diya! Bot ab sirf ping ke liye alive hai.`);
-
-  } catch (err) {
-    console.log(`[ERROR] ${err.message}`);
   }
+
+  console.log(`[WAIT] Koi bhi key nahi bani — 15s baad dobara try...`);
 }
 
 // ─── Start ────────────────────────────────────────────────
