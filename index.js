@@ -7,6 +7,7 @@ const axios = require('axios');
 const { Resend } = require('resend');
 const qs = require('querystring');
 const path = require('path');
+const fs = require('fs');
 
 // ─── Config ───────────────────────────────────────────────
 const API_KEY      = process.env.API_KEY;
@@ -59,9 +60,35 @@ const PRODUCTS = {
   66: { name: 'XYZ CHEATS FF ROOT ANDROID', requiresAndroidId: false, durations: ['1 Days', '3 Days'] }
 };
 
-let keyHistory = []; // In-memory history for panel
+};
+
+const DB_FILE = path.join(__dirname, 'database.json');
+let keyHistory = []; 
+
+// Load existing history from file
+if (fs.existsSync(DB_FILE)) {
+    try {
+        const data = fs.readFileSync(DB_FILE, 'utf8');
+        keyHistory = JSON.parse(data);
+    } catch (err) {
+        console.error("Error reading database.json", err);
+    }
+}
+
+// Helper to save history
+function saveHistory() {
+    fs.writeFileSync(DB_FILE, JSON.stringify(keyHistory, null, 2));
+}
+
 let activeBotTask = null;
 let botConfig = null;
+let sseClients = []; // Store connected SSE clients
+
+// Helper to broadcast messages to all connected SSE clients
+function broadcastLog(message, type = 'info') {
+    const data = JSON.stringify({ message, type, time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) });
+    sseClients.forEach(client => client.write(`data: ${data}\n\n`));
+}
 
 // ─── Express App Setup ────────────────────────────────────
 const app = express();
@@ -178,6 +205,24 @@ app.get('/logout', async (req, res) => {
     res.redirect('/login');
 });
 
+// ─── SSE Route for Live Console ───────────────────────────
+app.get('/bot/stream', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Add this client to the list
+    sseClients.push(res);
+    
+    // Send initial status
+    res.write(`data: ${JSON.stringify({ message: 'Console Connected.', type: 'success', time: new Date().toLocaleTimeString() })}\n\n`);
+
+    req.on('close', () => {
+        sseClients = sseClients.filter(client => client !== res);
+    });
+});
+
 app.get('/', checkAuth, (req, res) => {
     res.render('dashboard', { 
         user: req.session.user,
@@ -195,23 +240,36 @@ app.post('/bot/start', checkAuth, (req, res) => {
     
     if (activeBotTask) clearInterval(activeBotTask);
     
-    botConfig = { product_id, duration, productName: product.name };
-    console.log(`[BOT] Started for ${product.name} - ${duration}`);
+    botConfig = { product_id, duration, productName: product.name, checks: 0 };
+    const startMsg = `Started checking for ${product.name} - ${duration}`;
+    console.log(`[BOT] ${startMsg}`);
+    broadcastLog(startMsg, 'info');
 
     activeBotTask = setInterval(async () => {
         if (!botConfig) return;
+        botConfig.checks += 1;
         try {
-            console.log(`[BOT] Checking balance & attempting buy for ${botConfig.productName}...`);
+            broadcastLog(`Attempt #${botConfig.checks}: Checking balance for ${botConfig.productName}...`, 'warning');
+            
             const buyRes = await buyKey(botConfig.product_id, botConfig.duration);
             const resStr = typeof buyRes === 'object' ? JSON.stringify(buyRes) : String(buyRes);
             
             if (resStr.toLowerCase().includes('low balance')) {
-                console.log(`[BOT] Low Balance. Waiting...`);
+                // Try to extract wallet balance
+                const balanceMatch = resStr.match(/Wallet:\s*₹?([0-9.]+)/i);
+                const balanceTxt = balanceMatch ? ` (Balance: ₹${balanceMatch[1]})` : '';
+                const msg = `Low Balance${balanceTxt}. Waiting for funds...`;
+                
+                console.log(`[BOT] ${msg}`);
+                broadcastLog(msg, 'error');
             } else if (resStr.toLowerCase().includes('error') || resStr.toLowerCase().includes('invalid')) {
                 console.log(`[BOT] Error: ${resStr}`);
+                broadcastLog(`API Error: ${resStr}`, 'error');
             } else {
                 // Success!
                 console.log(`[BOT] SUCCESS! Key generated.`);
+                broadcastLog(`SUCCESS! Key generated for ${botConfig.productName}!`, 'success');
+                
                 const key = buyRes?.key || buyRes?.license || buyRes?.code || buyRes?.data || resStr;
                 
                 keyHistory.unshift({
@@ -220,6 +278,7 @@ app.post('/bot/start', checkAuth, (req, res) => {
                     duration: botConfig.duration,
                     time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
                 });
+                saveHistory(); // Save to database.json
 
                 await sendEmail(botConfig.productName, botConfig.duration, key, buyRes);
                 
@@ -228,9 +287,11 @@ app.post('/bot/start', checkAuth, (req, res) => {
                 activeBotTask = null;
                 botConfig = null;
                 console.log(`[BOT] Stopped after successful purchase.`);
+                broadcastLog(`Bot stopped after successful purchase.`, 'success');
             }
         } catch (err) {
             console.error(`[BOT ERROR]`, err.message);
+            broadcastLog(`Network Error: ${err.message}`, 'error');
         }
     }, process.env.CHECK_INTERVAL_MS || 15000);
 
@@ -249,6 +310,7 @@ app.post('/bot/stop', checkAuth, (req, res) => {
     }
     botConfig = null;
     console.log(`[BOT] Stopped manually.`);
+    broadcastLog(`Bot manually stopped by user.`, 'warning');
     res.redirect('/');
 });
 

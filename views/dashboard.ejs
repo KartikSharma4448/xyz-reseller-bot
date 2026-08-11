@@ -153,6 +153,31 @@
             color: #888;
             padding: 30px;
         }
+        
+        /* Terminal Console CSS */
+        .console-box {
+            background: #000;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 25px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            color: #0f0;
+            height: 250px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+        .console-line {
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+        .log-info { color: #00ff88; }
+        .log-warning { color: #ffeb3b; }
+        .log-error { color: #ff4444; }
+        .log-success { color: #00e676; font-weight: bold; }
+        .log-time { color: #555; margin-right: 10px; font-size: 11px; }
+
         @media (max-width: 768px) {
             .container {
                 grid-template-columns: 1fr;
@@ -207,6 +232,12 @@
                     <button type="submit" class="btn">🚀 Start Auto-Bot</button>
                 </form>
             <% } %>
+
+            <!-- Live Terminal Console -->
+            <h3 style="margin-top:30px; font-size:16px; color:#aaa;">Terminal Logs</h3>
+            <div class="console-box" id="consoleOutput">
+                <div class="console-line"><span class="log-time"><%= new Date().toLocaleTimeString() %></span><span class="log-info">System initialized... Waiting for events.</span></div>
+            </div>
         </div>
 
         <!-- History Section -->
@@ -259,6 +290,26 @@
                 }
             });
         }
+
+        // --- Live Console (SSE) ---
+        const consoleOutput = document.getElementById('consoleOutput');
+        
+        function appendLog(time, message, type) {
+            const line = document.createElement('div');
+            line.className = 'console-line';
+            line.innerHTML = `<span class="log-time">${time}</span><span class="log-${type}">${message}</span>`;
+            consoleOutput.appendChild(line);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight; // auto-scroll
+        }
+
+        const evtSource = new EventSource("/bot/stream");
+        evtSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            appendLog(data.time, data.message, data.type);
+        };
+        evtSource.onerror = function(err) {
+            console.error("EventSource failed:", err);
+        };
     </script>
 </body>
 </html>
