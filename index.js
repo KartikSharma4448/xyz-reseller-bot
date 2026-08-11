@@ -63,9 +63,19 @@ let activeBotTask = null;
 let botConfig = null;
 let sseClients = []; // Store connected SSE clients
 
+let recentLogs = []; // Store last 50 logs
+let botStartHistory = []; // Store bot start events
+
 // Helper to broadcast messages to all connected SSE clients
 function broadcastLog(message, type = 'info') {
-    const data = JSON.stringify({ message, type, time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }) });
+    const timeStr = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+    const logEntry = { message, type, time: timeStr, checks: botConfig ? botConfig.checks : 0 };
+    
+    // Keep only last 50 logs in memory
+    recentLogs.push(logEntry);
+    if (recentLogs.length > 50) recentLogs.shift();
+    
+    const data = JSON.stringify(logEntry);
     sseClients.forEach(client => client.write(`data: ${data}\n\n`));
 }
 
@@ -206,7 +216,9 @@ app.get('/', checkAuth, async (req, res) => {
         user: req.session.user,
         products: PRODUCTS,
         history: keys || [],
-        botConfig: botConfig
+        botConfig: botConfig,
+        recentLogs: recentLogs,
+        botStartHistory: botStartHistory
     });
 });
 
@@ -225,6 +237,14 @@ app.post('/bot/start', checkAuth, (req, res) => {
         checks: 0, 
         android_id: android_id ? android_id.trim() : null 
     };
+    
+    const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+    botStartHistory.unshift({
+        productName: product.name,
+        duration: duration,
+        time: timeStr
+    });
+    if (botStartHistory.length > 20) botStartHistory.pop(); // Keep only last 20 starts
     
     const startMsg = `Started checking for ${product.name} - ${duration}`;
     console.log(`[BOT] ${startMsg}`);
